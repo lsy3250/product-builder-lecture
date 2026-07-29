@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>그림판</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      background: #f1f4f8;
+      color: #222;
+    }
+
+    .container {
+      width: min(1100px, 100%);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      text-align: center;
+      font-size: 32px;
+    }
+
+    .drawing-app {
+      overflow: hidden;
+      background: #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.12);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      padding: 15px;
+      background: #ffffff;
+      border-bottom: 1px solid #dddddd;
+    }
+
+    .tool-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tool-label {
+      font-size: 14px;
+      font-weight: bold;
+      color: #555555;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid #d3d7de;
+      border-radius: 10px;
+      background: #ffffff;
+      color: #222222;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    button:hover {
+      background: #f1f3f6;
+    }
+
+    button.active {
+      border-color: #4f62d8;
+      background: #4f62d8;
+      color: #ffffff;
+    }
+
+    button.danger {
+      border-color: #e45c5c;
+      color: #d53d3d;
+    }
+
+    button.danger:hover {
+      background: #fff0f0;
+    }
+
+    button.save {
+      border-color: #21a366;
+      background: #21a366;
+      color: #ffffff;
+    }
+
+    button.save:hover {
+      background: #18834f;
+    }
+
+    input[type="color"] {
+      width: 46px;
+      height: 42px;
+      padding: 3px;
+      border: 1px solid #d3d7de;
+      border-radius: 10px;
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    input[type="range"] {
+      width: 130px;
+      cursor: pointer;
+    }
+
+    .size-value {
+      min-width: 42px;
+      font-weight: bold;
+      color: #4f62d8;
+    }
+
+    .canvas-area {
+      position: relative;
+      width: 100%;
+      height: 650px;
+      background:
+        linear-gradient(#eeeeee 1px, transparent 1px),
+        linear-gradient(90deg, #eeeeee 1px, transparent 1px);
+      background-size: 25px 25px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #ffffff;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    .status {
+      padding: 10px 15px;
+      border-top: 1px solid #eeeeee;
+      background: #fafafa;
+      color: #666666;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    @media (max-width: 700px) {
+      .container {
+        padding: 10px;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+
+      .toolbar {
+        gap: 9px;
+        padding: 12px;
+      }
+
+      .tool-group {
+        flex-wrap: wrap;
+      }
+
+      button {
+        padding: 8px 11px;
+        font-size: 14px;
+      }
+
+      .canvas-area {
+        height: 520px;
+      }
+
+      input[type="range"] {
+        width: 100px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <h1>🎨 나만의 그림판</h1>
+
+    <section class="drawing-app">
+      <div class="toolbar">
+
+        <div class="tool-group">
+          <button id="penButton" class="active" type="button">
+            ✏️ 펜
+          </button>
+
+          <button id="eraserButton" type="button">
+            🧽 지우개
+          </button>
+        </div>
+
+        <div class="tool-group">
+          <span class="tool-label">색상</span>
+          <input
+            id="colorPicker"
+            type="color"
+            value="#222222"
+            aria-label="펜 색상"
+          />
+        </div>
+
+        <div class="tool-group">
+          <span class="tool-label">굵기</span>
+
+          <input
+            id="brushSize"
+            type="range"
+            min="1"
+            max="50"
+            value="6"
+            aria-label="펜 굵기"
+          />
+
+          <span id="brushSizeValue" class="size-value">
+            6px
+          </span>
+        </div>
+
+        <div class="tool-group">
+          <button id="undoButton" type="button">
+            ↩️ 되돌리기
+          </button>
+
+          <button id="clearButton" class="danger" type="button">
+            🗑️ 전체 지우기
+          </button>
+
+          <button id="saveButton" class="save" type="button">
+            💾 이미지 저장
+          </button>
+        </div>
+      </div>
+
+      <div class="canvas-area">
+        <canvas id="drawingCanvas"></canvas>
+      </div>
+
+      <div class="status">
+        마우스 또는 손가락으로 자유롭게 그림을 그려보세요.
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const canvas = document.getElementById("drawingCanvas");
+    const context = canvas.getContext("2d");
+
+    const penButton = document.getElementById("penButton");
+    const eraserButton = document.getElementById("eraserButton");
+    const colorPicker = document.getElementById("colorPicker");
+    const brushSize = document.getElementById("brushSize");
+    const brushSizeValue = document.getElementById("brushSizeValue");
+    const undoButton = document.getElementById("undoButton");
+    const clearButton = document.getElementById("clearButton");
+    const saveButton = document.getElementById("saveButton");
+
+    let isDrawing = false;
+    let currentTool = "pen";
+    let lastX = 0;
+    let lastY = 0;
+    let undoStack = [];
+    let resizeTimer;
+
+    function resizeCanvas() {
+      const canvasArea = canvas.parentElement;
+
+      const previousCanvas = document.createElement("canvas");
+      previousCanvas.width = canvas.width;
+      previousCanvas.height = canvas.height;
+
+      const previousContext = previousCanvas.getContext("2d");
+      previousContext.drawImage(canvas, 0, 0);
+
+      const pixelRatio = window.devicePixelRatio || 1;
+      const width = canvasArea.clientWidth;
+      const height = canvasArea.clientHeight;
+
+      canvas.width = width * pixelRatio;
+      canvas.height = height * pixelRatio;
+
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+      context.lineCap = "round";
+      context.lineJoin = "round";
+
+      if (previousCanvas.width > 0 && previousCanvas.height > 0) {
+        context.drawImage(
+          previousCanvas,
+          0,
+          0,
+          previousCanvas.width,
+          previousCanvas.height,
+          0,
+          0,
+          width,
+          height
+        );
+      }
+    }
+
+    function getPointerPosition(event) {
+      const rect = canvas.getBoundingClientRect();
+
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    }
+
+    function saveUndoState() {
+      if (undoStack.length >= 20) {
+        undoStack.shift();
+      }
+
+      undoStack.push(canvas.toDataURL());
+    }
+
+    function startDrawing(event) {
+      event.preventDefault();
+
+      saveUndoState();
+
+      isDrawing = true;
+
+      const position = getPointerPosition(event);
+
+      lastX = position.x;
+      lastY = position.y;
+
+      context.beginPath();
+      context.moveTo(lastX, lastY);
+
+      canvas.setPointerCapture(event.pointerId);
+    }
+
+    function draw(event) {
+      if (!isDrawing) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const position = getPointerPosition(event);
+
+      context.lineWidth = Number(brushSize.value);
+      context.lineCap = "round";
+      context.lineJoin = "round";
+
+      if (currentTool === "eraser") {
+        context.globalCompositeOperation = "destination-out";
+        context.strokeStyle = "rgba(0, 0, 0, 1)";
+      } else {
+        context.globalCompositeOperation = "source-over";
+        context.strokeStyle = colorPicker.value;
+      }
+
+      context.beginPath();
+      context.moveTo(lastX, lastY);
+      context.lineTo(position.x, position.y);
+      context.stroke();
+
+      lastX = position.x;
+      lastY = position.y;
+    }
+
+    function stopDrawing(event) {
+      if (!isDrawing) {
+        return;
+      }
+
+      isDrawing = false;
+      context.closePath();
+
+      if (
+        event.pointerId !== undefined &&
+        canvas.hasPointerCapture(event.pointerId)
+      ) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+    }
+
+    function selectPen() {
+      currentTool = "pen";
+
+      penButton.classList.add("active");
+      eraserButton.classList.remove("active");
+
+      canvas.style.cursor = "crosshair";
+    }
+
+    function selectEraser() {
+      currentTool = "eraser";
+
+      eraserButton.classList.add("active");
+      penButton.classList.remove("active");
+
+      canvas.style.cursor = "cell";
+    }
+
+    function clearCanvas() {
+      const shouldClear = confirm("그림을 모두 지우시겠습니까?");
+
+      if (!shouldClear) {
+        return;
+      }
+
+      saveUndoState();
+
+      context.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+    }
+
+    function undo() {
+      if (undoStack.length === 0) {
+        alert("되돌릴 내용이 없습니다.");
+        return;
+      }
+
+      const previousImage = undoStack.pop();
+      const image = new Image();
+
+      image.onload = function () {
+        const rect = canvas.getBoundingClientRect();
+
+        context.clearRect(
+          0,
+          0,
+          rect.width,
+          rect.height
+        );
+
+        context.globalCompositeOperation = "source-over";
+
+        context.drawImage(
+          image,
+          0,
+          0,
+          image.width,
+          image.height,
+          0,
+          0,
+          rect.width,
+          rect.height
+        );
+      };
+
+      image.src = previousImage;
+    }
+
+    function saveImage() {
+      const rect = canvas.getBoundingClientRect();
+
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = canvas.width;
+      exportCanvas.height = canvas.height;
+
+      const exportContext = exportCanvas.getContext("2d");
+
+      exportContext.fillStyle = "#ffffff";
+      exportContext.fillRect(
+        0,
+        0,
+        exportCanvas.width,
+        exportCanvas.height
+      );
+
+      exportContext.drawImage(canvas, 0, 0);
+
+      const link = document.createElement("a");
+
+      const date = new Date();
+      const fileName =
+        "my-drawing-" +
+        date.getFullYear() +
+        "-" +
+        String(date.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(date.getDate()).padStart(2, "0") +
+        ".png";
+
+      link.download = fileName;
+      link.href = exportCanvas.toDataURL("image/png");
+      link.click();
+    }
+
+    penButton.addEventListener("click", selectPen);
+    eraserButton.addEventListener("click", selectEraser);
+
+    brushSize.addEventListener("input", function () {
+      brushSizeValue.textContent = brushSize.value + "px";
+    });
+
+    undoButton.addEventListener("click", undo);
+    clearButton.addEventListener("click", clearCanvas);
+    saveButton.addEventListener("click", saveImage);
+
+    canvas.addEventListener("pointerdown", startDrawing);
+    canvas.addEventListener("pointermove", draw);
+    canvas.addEventListener("pointerup", stopDrawing);
+    canvas.addEventListener("pointercancel", stopDrawing);
+    canvas.addEventListener("pointerleave", stopDrawing);
+
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+
+      resizeTimer = setTimeout(function () {
+        resizeCanvas();
+      }, 150);
+    });
+
+    resizeCanvas();
+  </script>
+</body>
+</html>
