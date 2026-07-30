@@ -3,10 +3,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
 
   <title>그림판</title>
 
+  <script>
+    (function () {
+      const savedTheme = localStorage.getItem("drawing-app-theme");
+      const preferredTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+
+      document.documentElement.dataset.theme = savedTheme || preferredTheme;
+    })();
+  </script>
+
   <style>
+    :root {
+      color-scheme: light;
+      --page-background: #f1f4f8;
+      --text-primary: #222222;
+      --text-secondary: #555555;
+      --text-muted: #666666;
+      --surface: #ffffff;
+      --surface-muted: #fafafa;
+      --surface-hover: #f1f3f6;
+      --border: #d3d7de;
+      --border-subtle: #eeeeee;
+      --accent: #4f62d8;
+      --accent-hover: #4354bd;
+      --danger: #d53d3d;
+      --danger-border: #e45c5c;
+      --danger-hover: #fff0f0;
+      --success: #21a366;
+      --success-hover: #18834f;
+      --shadow: rgba(0, 0, 0, 0.12);
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --page-background: #111827;
+      --text-primary: #f3f4f6;
+      --text-secondary: #d1d5db;
+      --text-muted: #9ca3af;
+      --surface: #1f2937;
+      --surface-muted: #18212f;
+      --surface-hover: #374151;
+      --border: #4b5563;
+      --border-subtle: #374151;
+      --accent: #7181ef;
+      --accent-hover: #8492f4;
+      --danger: #ff8c8c;
+      --danger-border: #b95656;
+      --danger-hover: #482a31;
+      --success: #27a96d;
+      --success-hover: #35bd7d;
+      --shadow: rgba(0, 0, 0, 0.38);
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -15,8 +69,9 @@
       margin: 0;
       min-height: 100vh;
       font-family: Arial, "Noto Sans KR", sans-serif;
-      background: #f1f4f8;
-      color: #222;
+      background: var(--page-background);
+      color: var(--text-primary);
+      transition: background-color 0.2s ease, color 0.2s ease;
     }
 
     .container {
@@ -33,9 +88,10 @@
 
     .drawing-app {
       overflow: hidden;
-      background: #ffffff;
+      background: var(--surface);
       border-radius: 18px;
-      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 10px 35px var(--shadow);
+      transition: background-color 0.2s ease, box-shadow 0.2s ease;
     }
 
     .toolbar {
@@ -44,8 +100,9 @@
       align-items: center;
       gap: 12px;
       padding: 15px;
-      background: #ffffff;
-      border-bottom: 1px solid #dddddd;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      transition: background-color 0.2s ease, border-color 0.2s ease;
     }
 
     .tool-group {
@@ -54,10 +111,14 @@
       gap: 8px;
     }
 
+    .theme-group {
+      margin-left: auto;
+    }
+
     .tool-label {
       font-size: 14px;
       font-weight: bold;
-      color: #555555;
+      color: var(--text-secondary);
     }
 
     button,
@@ -68,63 +129,95 @@
     button {
       min-height: 42px;
       padding: 9px 14px;
-      border: 1px solid #d3d7de;
+      border: 1px solid var(--border);
       border-radius: 10px;
-      background: #ffffff;
-      color: #222222;
+      background: var(--surface);
+      color: var(--text-primary);
       font-weight: bold;
       cursor: pointer;
-      transition: 0.15s;
+      transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        transform 0.15s ease;
     }
 
     button:hover {
-      background: #f1f3f6;
+      background: var(--surface-hover);
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      outline-offset: 2px;
+    }
+
+    button:active {
+      transform: translateY(1px);
     }
 
     button.active {
-      border-color: #4f62d8;
-      background: #4f62d8;
+      border-color: var(--accent);
+      background: var(--accent);
       color: #ffffff;
     }
 
+    button.active:hover {
+      background: var(--accent-hover);
+    }
+
     button.danger {
-      border-color: #e45c5c;
-      color: #d53d3d;
+      border-color: var(--danger-border);
+      color: var(--danger);
     }
 
     button.danger:hover {
-      background: #fff0f0;
+      background: var(--danger-hover);
     }
 
     button.save {
-      border-color: #21a366;
-      background: #21a366;
+      border-color: var(--success);
+      background: var(--success);
       color: #ffffff;
     }
 
     button.save:hover {
-      background: #18834f;
+      background: var(--success-hover);
+    }
+
+    .theme-toggle {
+      min-width: 118px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+
+    .theme-icon {
+      font-size: 17px;
+      line-height: 1;
     }
 
     input[type="color"] {
       width: 46px;
       height: 42px;
       padding: 3px;
-      border: 1px solid #d3d7de;
+      border: 1px solid var(--border);
       border-radius: 10px;
-      background: #ffffff;
+      background: var(--surface);
       cursor: pointer;
     }
 
     input[type="range"] {
       width: 130px;
+      accent-color: var(--accent);
       cursor: pointer;
     }
 
     .size-value {
       min-width: 42px;
       font-weight: bold;
-      color: #4f62d8;
+      color: var(--accent);
     }
 
     .canvas-area {
@@ -148,11 +241,15 @@
 
     .status {
       padding: 10px 15px;
-      border-top: 1px solid #eeeeee;
-      background: #fafafa;
-      color: #666666;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--surface-muted);
+      color: var(--text-muted);
       font-size: 14px;
       text-align: center;
+      transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
     }
 
     @media (max-width: 700px) {
@@ -173,6 +270,15 @@
         flex-wrap: wrap;
       }
 
+      .theme-group {
+        width: 100%;
+        margin-left: 0;
+      }
+
+      .theme-toggle {
+        width: 100%;
+      }
+
       button {
         padding: 8px 11px;
         font-size: 14px;
@@ -186,6 +292,15 @@
         width: 100px;
       }
     }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
   </style>
 </head>
 
@@ -195,7 +310,6 @@
 
     <section class="drawing-app">
       <div class="toolbar">
-
         <div class="tool-group">
           <button id="penButton" class="active" type="button">
             ✏️ 펜
@@ -246,6 +360,18 @@
             💾 이미지 저장
           </button>
         </div>
+
+        <div class="tool-group theme-group">
+          <button
+            id="themeToggle"
+            class="theme-toggle"
+            type="button"
+            aria-pressed="false"
+          >
+            <span id="themeIcon" class="theme-icon" aria-hidden="true">🌙</span>
+            <span id="themeLabel">다크 모드</span>
+          </button>
+        </div>
       </div>
 
       <div class="canvas-area">
@@ -270,6 +396,9 @@
     const undoButton = document.getElementById("undoButton");
     const clearButton = document.getElementById("clearButton");
     const saveButton = document.getElementById("saveButton");
+    const themeToggle = document.getElementById("themeToggle");
+    const themeIcon = document.getElementById("themeIcon");
+    const themeLabel = document.getElementById("themeLabel");
 
     let isDrawing = false;
     let currentTool = "pen";
@@ -277,6 +406,31 @@
     let lastY = 0;
     let undoStack = [];
     let resizeTimer;
+
+    function updateThemeButton(theme) {
+      const isDark = theme === "dark";
+
+      themeToggle.setAttribute("aria-pressed", String(isDark));
+      themeToggle.setAttribute(
+        "aria-label",
+        isDark ? "화이트 모드로 전환" : "다크 모드로 전환"
+      );
+      themeIcon.textContent = isDark ? "☀️" : "🌙";
+      themeLabel.textContent = isDark ? "화이트 모드" : "다크 모드";
+    }
+
+    function setTheme(theme) {
+      document.documentElement.dataset.theme = theme;
+      localStorage.setItem("drawing-app-theme", theme);
+      updateThemeButton(theme);
+    }
+
+    function toggleTheme() {
+      const nextTheme =
+        document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+
+      setTheme(nextTheme);
+    }
 
     function resizeCanvas() {
       const canvasArea = canvas.parentElement;
@@ -472,8 +626,6 @@
     }
 
     function saveImage() {
-      const rect = canvas.getBoundingClientRect();
-
       const exportCanvas = document.createElement("canvas");
       exportCanvas.width = canvas.width;
       exportCanvas.height = canvas.height;
@@ -509,6 +661,7 @@
 
     penButton.addEventListener("click", selectPen);
     eraserButton.addEventListener("click", selectEraser);
+    themeToggle.addEventListener("click", toggleTheme);
 
     brushSize.addEventListener("input", function () {
       brushSizeValue.textContent = brushSize.value + "px";
@@ -532,6 +685,7 @@
       }, 150);
     });
 
+    updateThemeButton(document.documentElement.dataset.theme);
     resizeCanvas();
   </script>
 </body>
