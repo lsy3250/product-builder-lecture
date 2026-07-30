@@ -315,8 +315,12 @@
             ✏️ 펜
           </button>
 
-          <button id="eraserButton" type="button">
-            🧽 지우개
+          <button id="eraserButton" type="button" title="커서가 지나간 부분만 지웁니다.">
+            🧽 부분 지우개
+          </button>
+
+          <button id="strokeEraserButton" type="button" title="닿은 선을 한 번에 전체 삭제합니다.">
+            ✨ 선 전체 지우개
           </button>
         </div>
 
@@ -390,6 +394,7 @@
 
     const penButton = document.getElementById("penButton");
     const eraserButton = document.getElementById("eraserButton");
+    const strokeEraserButton = document.getElementById("strokeEraserButton");
     const colorPicker = document.getElementById("colorPicker");
     const brushSize = document.getElementById("brushSize");
     const brushSizeValue = document.getElementById("brushSizeValue");
@@ -405,6 +410,10 @@
     let lastX = 0;
     let lastY = 0;
     let undoStack = [];
+    let strokes = [];
+    let activeStroke = null;
+    let deletedStrokeIds = new Set();
+    let nextStrokeId = 1;
     let resizeTimer;
 
     function updateThemeButton(theme) {
@@ -435,13 +444,6 @@
     function resizeCanvas() {
       const canvasArea = canvas.parentElement;
 
-      const previousCanvas = document.createElement("canvas");
-      previousCanvas.width = canvas.width;
-      previousCanvas.height = canvas.height;
-
-      const previousContext = previousCanvas.getContext("2d");
-      previousContext.drawImage(canvas, 0, 0);
-
       const pixelRatio = window.devicePixelRatio || 1;
       const width = canvasArea.clientWidth;
       const height = canvasArea.clientHeight;
@@ -457,19 +459,7 @@
       context.lineCap = "round";
       context.lineJoin = "round";
 
-      if (previousCanvas.width > 0 && previousCanvas.height > 0) {
-        context.drawImage(
-          previousCanvas,
-          0,
-          0,
-          previousCanvas.width,
-          previousCanvas.height,
-          0,
-          0,
-          width,
-          height
-        );
-      }
+      renderStrokes();
     }
 
     function getPointerPosition(event) {
@@ -486,7 +476,134 @@
         undoStack.shift();
       }
 
-      undoStack.push(canvas.toDataURL());
+      undoStack.push(JSON.stringify(strokes));
+    }
+
+    function renderStroke(stroke) {
+      if (!stroke.points.length) {
+        return;
+      }
+
+      context.save();
+      context.lineWidth = stroke.width;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.globalCompositeOperation =
+        stroke.tool === "eraser" ? "destination-out" : "source-over";
+      context.strokeStyle =
+        stroke.tool === "eraser" ? "#000000" : stroke.color;
+
+      context.beginPath();
+      context.moveTo(stroke.points[0].x, stroke.points[0].y);
+
+      if (stroke.points.length === 1) {
+        context.lineTo(
+          stroke.points[0].x + 0.01,
+          stroke.points[0].y + 0.01
+        );
+      } else {
+        for (let index = 1; index < stroke.points.length; index += 1) {
+          context.lineTo(stroke.points[index].x, stroke.points[index].y);
+        }
+      }
+
+      context.stroke();
+      context.restore();
+    }
+
+    function renderStrokes() {
+      const rect = canvas.getBoundingClientRect();
+      context.clearRect(0, 0, rect.width, rect.height);
+      strokes.forEach(renderStroke);
+    }
+
+    function distanceToSegment(point, start, end) {
+      const deltaX = end.x - start.x;
+      const deltaY = end.y - start.y;
+      const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+
+      if (lengthSquared === 0) {
+        return Math.hypot(point.x - start.x, point.y - start.y);
+      }
+
+      const amount = Math.max(
+        0,
+        Math.min(
+          1,
+          ((point.x - start.x) * deltaX +
+            (point.y - start.y) * deltaY) /
+            lengthSquared
+        )
+      );
+
+      return Math.hypot(
+        point.x - (start.x + amount * deltaX),
+        point.y - (start.y + amount * deltaY)
+      );
+    }
+
+    function strokeTouchesPoint(stroke, point, eraserRadius) {
+      const hitDistance = eraserRadius + stroke.width / 2;
+
+      if (stroke.points.length === 1) {
+        return (
+          Math.hypot(
+            point.x - stroke.points[0].x,
+            point.y - stroke.points[0].y
+          ) <= hitDistance
+        );
+      }
+
+      for (let index = 1; index < stroke.points.length; index += 1) {
+        if (
+          distanceToSegment(
+            point,
+            stroke.points[index - 1],
+            stroke.points[index]
+          ) <= hitDistance
+        ) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function eraseWholeStrokes(position) {
+      const eraserRadius = Number(brushSize.value) / 2;
+      let foundStroke = false;
+
+      strokes.forEach(function (stroke) {
+        if (
+          stroke.tool === "pen" &&
+          !deletedStrokeIds.has(stroke.id) &&
+          strokeTouchesPoint(stroke, position, eraserRadius)
+        ) {
+          deletedStrokeIds.add(stroke.id);
+          foundStroke = true;
+        }
+      });
+
+      if (foundStroke) {
+        strokes = strokes.filter(function (stroke) {
+          return !deletedStrokeIds.has(stroke.id);
+        });
+        renderStrokes();
+      }
+    }
+
+    function eraseWholeStrokesAlongPath(start, end) {
+      const distance = Math.hypot(end.x - start.x, end.y - start.y);
+      const spacing = Math.max(2, Number(brushSize.value) / 3);
+      const steps = Math.max(1, Math.ceil(distance / spacing));
+
+      for (let index = 1; index <= steps; index += 1) {
+        const amount = index / steps;
+        eraseWholeStrokes({
+          x: start.x + (end.x - start.x) * amount,
+          y: start.y + (end.y - start.y) * amount
+        });
+      }
     }
 
     function startDrawing(event) {
@@ -501,8 +618,22 @@
       lastX = position.x;
       lastY = position.y;
 
-      context.beginPath();
-      context.moveTo(lastX, lastY);
+      deletedStrokeIds.clear();
+
+      if (currentTool === "strokeEraser") {
+        eraseWholeStrokes(position);
+      } else {
+        activeStroke = {
+          id: nextStrokeId,
+          tool: currentTool,
+          color: colorPicker.value,
+          width: Number(brushSize.value),
+          points: [position]
+        };
+        nextStrokeId += 1;
+        strokes.push(activeStroke);
+        renderStroke(activeStroke);
+      }
 
       canvas.setPointerCapture(event.pointerId);
     }
@@ -516,7 +647,17 @@
 
       const position = getPointerPosition(event);
 
-      context.lineWidth = Number(brushSize.value);
+      if (currentTool === "strokeEraser") {
+        eraseWholeStrokesAlongPath(
+          { x: lastX, y: lastY },
+          position
+        );
+        lastX = position.x;
+        lastY = position.y;
+        return;
+      }
+
+      context.lineWidth = activeStroke.width;
       context.lineCap = "round";
       context.lineJoin = "round";
 
@@ -525,7 +666,7 @@
         context.strokeStyle = "rgba(0, 0, 0, 1)";
       } else {
         context.globalCompositeOperation = "source-over";
-        context.strokeStyle = colorPicker.value;
+        context.strokeStyle = activeStroke.color;
       }
 
       context.beginPath();
@@ -533,6 +674,7 @@
       context.lineTo(position.x, position.y);
       context.stroke();
 
+      activeStroke.points.push(position);
       lastX = position.x;
       lastY = position.y;
     }
@@ -544,6 +686,8 @@
 
       isDrawing = false;
       context.closePath();
+      activeStroke = null;
+      deletedStrokeIds.clear();
 
       if (
         event.pointerId !== undefined &&
@@ -558,6 +702,7 @@
 
       penButton.classList.add("active");
       eraserButton.classList.remove("active");
+      strokeEraserButton.classList.remove("active");
 
       canvas.style.cursor = "crosshair";
     }
@@ -567,8 +712,19 @@
 
       eraserButton.classList.add("active");
       penButton.classList.remove("active");
+      strokeEraserButton.classList.remove("active");
 
       canvas.style.cursor = "cell";
+    }
+
+    function selectStrokeEraser() {
+      currentTool = "strokeEraser";
+
+      strokeEraserButton.classList.add("active");
+      penButton.classList.remove("active");
+      eraserButton.classList.remove("active");
+
+      canvas.style.cursor = "not-allowed";
     }
 
     function clearCanvas() {
@@ -579,13 +735,8 @@
       }
 
       saveUndoState();
-
-      context.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
+      strokes = [];
+      renderStrokes();
     }
 
     function undo() {
@@ -594,35 +745,8 @@
         return;
       }
 
-      const previousImage = undoStack.pop();
-      const image = new Image();
-
-      image.onload = function () {
-        const rect = canvas.getBoundingClientRect();
-
-        context.clearRect(
-          0,
-          0,
-          rect.width,
-          rect.height
-        );
-
-        context.globalCompositeOperation = "source-over";
-
-        context.drawImage(
-          image,
-          0,
-          0,
-          image.width,
-          image.height,
-          0,
-          0,
-          rect.width,
-          rect.height
-        );
-      };
-
-      image.src = previousImage;
+      strokes = JSON.parse(undoStack.pop());
+      renderStrokes();
     }
 
     function saveImage() {
@@ -661,6 +785,7 @@
 
     penButton.addEventListener("click", selectPen);
     eraserButton.addEventListener("click", selectEraser);
+    strokeEraserButton.addEventListener("click", selectStrokeEraser);
     themeToggle.addEventListener("click", toggleTheme);
 
     brushSize.addEventListener("input", function () {
